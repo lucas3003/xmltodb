@@ -1,17 +1,10 @@
+#Lucas Jose Monteiro Carvalho
+#SLAC National Accelerator Laboratory
+
 import xml.etree.cElementTree as ET
 import sys
 
-
-#Parse variables of device and return list of dependent devices
-def newDevice(device):
-	global commands
-
-	#Get index of the name
-	for i in range(len(device)):
-		if str(device[i].tag) == "name":
-			nameIndex = i
-			break	
-
+def findIndex(device):
 	index = -1
 
 	#Get index of... index
@@ -19,6 +12,23 @@ def newDevice(device):
 		if str(device[i].tag) == "index":
 			index = i
 			break
+
+	return index
+
+def findNameIndex(device):
+	#Get index of the name
+	for i in range(len(device)):
+		if str(device[i].tag) == "name":
+			nameIndex = i
+			break			
+
+
+#Parse variables of device and return list of dependent devices
+def newDevice(device):
+	global commands
+
+	nameIndex = findNameIndex(device)
+	index = findIndex(device)
 
 	if index == -1: #Index not found. Put 0 as default
 		asynPort = device[nameIndex].text+"_0"
@@ -54,7 +64,56 @@ def newDevice(device):
 	file.write(records)
 	file.close()
 
+	lastY += 30
+	ui_relateddisplay = '<widget class="caRelatedDisplay" name="carelateddisplay"> \n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 230 </width> \n <height> 221 </height> \n </rect> \n </property>' % (lastY)
 
+	labels = []
+	files = []
+
+	for dev in dependentDevices:
+		index = findIndex(dev)
+		nameIndex = findNameIndex(dev)
+
+		if index == -1: #Index not found. Put 0 as default
+			name = dev[nameIndex].text+"_0"
+		else:
+			name = dev[nameIndex].text+"_"+dev[index].text
+
+		labels.append(name)
+		files.append(name+".ui")
+
+	ui_relateddisplay += '<property name="labels"> \n <string notr="true"> '
+
+	first = True
+	for l in labels:
+		if first:
+			ui_relateddisplay += '%s' % (l)
+			first = False
+		else:
+			ui_relateddisplay += ';%s' % (l)
+
+	ui_relateddisplay += '</string> \n </property> \n <property name="files"> \n <string notr="true"> '
+
+	first = True
+	for f in files:
+		if first:
+			ui_relateddisplay += '%s' % (f)		
+			first = False
+		else:
+			ui_relateddisplay += ';%s' % (f)		
+
+	ui_relateddisplay += '</string> \n </property> \n <property name="args"> \n <string notr="true">  '
+
+	first = True
+	for l in labels:
+		if first:
+			first = False
+		else:
+			ui_relateddisplay += ';'
+
+	ui_relateddisplay += '</string> \n </property> \n </widget> \n'
+
+	lastY += 251
 	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> 442 </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n' % (str(lastY + 30))
 	ui_foot = '</widget> \n </widget> <customwidgets> \n <customwidget> \n <class>caMenu</class> \n <extends>QComboBox</extends> \n <header>caMenu</header> \n </customwidget> \n <customwidget> \n <class>caRelatedDisplay</class> \n <extends>QWidget</extends> \n <header>caRelatedDisplay</header> \n </customwidget> \n <customwidget> \n <class>caTextEntry</class> \n <extends>caLineEdit</extends> \n <header>caTextEntry</header> \n </customwidget> \n <customwidget> \n <class>caLineEdit</class> \n <extends>QLineEdit</extends> \n <header>caLineEdit</header> \n </customwidget> \n </customwidgets> \n <resources/> \n <connections/> \n </ui>'
 	file = open(sys.argv[2]+"/"+asynPort+".ui", "w")
