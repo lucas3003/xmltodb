@@ -20,7 +20,9 @@ def findNameIndex(device):
 	for i in range(len(device)):
 		if str(device[i].tag) == "name":
 			nameIndex = i
-			break			
+			break
+
+	return nameIndex			
 
 
 #Parse variables of device and return list of dependent devices
@@ -40,16 +42,29 @@ def newDevice(device):
 	records = ""
 
 	ui = ""
-	lastY = 0
+	lastY = 30
 
+	status_ui = []
+	config_ui = []
+
+
+	biggest_label_width = 0
 
 	for child in device:
 		if child.tag == 'variable':
-			#records += parseVariable(child, asynPort)
-			result = parseVariable(child,asynPort, lastY)
+			#result = parseVariable(child,asynPort, lastY)
+			result = parseVariable(child, asynPort)
 			records += result[0]
-			ui += result[1]
-			lastY += 30
+			ui = result[1]
+			label_width = result[2]
+
+			if label_width > biggest_label_width:
+				biggest_label_width = label_width
+
+			if 'caLineEdit' in ui:
+				status_ui.append(result[1])
+			else: #Configuration variable
+				config_ui.append(result[1])	
 
 		elif child.tag == 'device':
 			dependentDevices.append(child)
@@ -58,73 +73,122 @@ def newDevice(device):
 			commands += parseCommands(child, asynPort)
 
 
+	if len(status_ui) > 0:
+		status_label = '<widget class="QLabel" name="status">\n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 200 </width> \n <height> 15 </height> \n </rect> \n </property> <property name="text"> \n <string> %s </string> \n </property> \n </widget> \n' % (str(lastY), 'Status variables')
+	
+		lastY += 30
+
+
+		status_ui_modified = []
+		for s in status_ui:
+			#print "status_ui for"
+			temp = s.replace("YNOTDEFINED", str(lastY))
+			temp = temp.replace("XNOTDEFINED", str(biggest_label_width+50))
+			status_ui_modified.append(temp)
+			lastY += 30
+
+		lastY += 70
+
+	if len(config_ui) > 0:
+		config_label = '<widget class="QLabel" name="status">\n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 200 </width> \n <height> 15 </height> \n </rect> \n </property> <property name="text"> \n <string> %s </string> \n </property> \n </widget> \n' % (str(lastY), 'Configuration variables')
+
+		lastY += 30
+
+		config_ui_modified = []
+		for c in config_ui:
+			#print "config_ui for"
+			temp = c.replace("YNOTDEFINED", str(lastY))
+			temp = temp.replace("XNOTDEFINED", str(biggest_label_width+50))
+			config_ui_modified.append(temp)
+			lastY += 30	
+
+
 	# Create file with string 'records'
 	#file = open("out/"+asynPort+".db", "w")
 	file = open(sys.argv[2]+"/"+asynPort+".db", "w")
 	file.write(records)
 	file.close()
 
-	lastY += 30
-	ui_relateddisplay = '<widget class="caRelatedDisplay" name="carelateddisplay"> \n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 230 </width> \n <height> 221 </height> \n </rect> \n </property>' % (lastY)
+	if len(dependentDevices) > 0:
 
-	labels = []
-	files = []
+		lastY += 30
+		ui_relateddisplay = '<widget class="caRelatedDisplay" name="carelateddisplay"> \n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 230 </width> \n <height> 221 </height> \n </rect> \n </property>' % (lastY)
 
-	for dev in dependentDevices:
-		index = findIndex(dev)
-		nameIndex = findNameIndex(dev)
+		labels = []
+		files = []
 
-		if index == -1: #Index not found. Put 0 as default
-			name = dev[nameIndex].text+"_0"
-		else:
-			name = dev[nameIndex].text+"_"+dev[index].text
+		for dev in dependentDevices:
+			index = findIndex(dev)
+			nameIndex = findNameIndex(dev)
 
-		labels.append(name)
-		files.append(name+".ui")
+			if index == -1: #Index not found. Put 0 as default
+				name = dev[nameIndex].text+"_0"
+			else:
+				name = dev[nameIndex].text+"_"+dev[index].text
 
-	ui_relateddisplay += '<property name="labels"> \n <string notr="true"> '
+			labels.append(name)
+			files.append(name+".ui")
 
-	first = True
-	for l in labels:
-		if first:
-			ui_relateddisplay += '%s' % (l)
-			first = False
-		else:
-			ui_relateddisplay += ';%s' % (l)
+		ui_relateddisplay += '<property name="labels"> \n <string notr="true"> '
 
-	ui_relateddisplay += '</string> \n </property> \n <property name="files"> \n <string notr="true"> '
+		first = True
+		for l in labels:
+			if first:
+				ui_relateddisplay += '%s' % (l)
+				first = False
+			else:
+				ui_relateddisplay += ';%s' % (l)
 
-	first = True
-	for f in files:
-		if first:
-			ui_relateddisplay += '%s' % (f)		
-			first = False
-		else:
-			ui_relateddisplay += ';%s' % (f)		
+		ui_relateddisplay += '</string> \n </property> \n <property name="files"> \n <string notr="true"> '
 
-	ui_relateddisplay += '</string> \n </property> \n <property name="args"> \n <string notr="true">  '
+		first = True
+		for f in files:
+			if first:
+				ui_relateddisplay += '%s' % (f)		
+				first = False
+			else:
+				ui_relateddisplay += ';%s' % (f)		
 
-	first = True
-	for l in labels:
-		if first:
-			first = False
-		else:
-			ui_relateddisplay += ';'
+		ui_relateddisplay += '</string> \n </property> \n <property name="args"> \n <string notr="true">  '
 
-	ui_relateddisplay += '</string> \n </property> \n </widget> \n'
+		first = True
+		for l in labels:
+			if first:
+				first = False
+			else:
+				ui_relateddisplay += ';'
 
-	lastY += 251
-	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> 442 </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n' % (str(lastY + 30))
+		ui_relateddisplay += '</string> \n </property> \n </widget> \n'
+
+		lastY += 251
+
+	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> %d </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n' % (biggest_label_width+261,str(lastY + 30))
 	ui_foot = '</widget> \n </widget> <customwidgets> \n <customwidget> \n <class>caMenu</class> \n <extends>QComboBox</extends> \n <header>caMenu</header> \n </customwidget> \n <customwidget> \n <class>caRelatedDisplay</class> \n <extends>QWidget</extends> \n <header>caRelatedDisplay</header> \n </customwidget> \n <customwidget> \n <class>caTextEntry</class> \n <extends>caLineEdit</extends> \n <header>caTextEntry</header> \n </customwidget> \n <customwidget> \n <class>caLineEdit</class> \n <extends>QLineEdit</extends> \n <header>caLineEdit</header> \n </customwidget> \n </customwidgets> \n <resources/> \n <connections/> \n </ui>'
+
 	file = open(sys.argv[2]+"/"+asynPort+".ui", "w")
-	file.write(ui_header + ui + ui_foot)
+	#file.write(ui_header + ui_relateddisplay + ui + ui_foot)
+
+	if len(dependentDevices) > 0:
+		file.write(ui_header + ui_relateddisplay)
+	else:
+		file.write(ui_header)
+	
+	if len(status_ui) > 0:
+		file.write(status_label)
+		for s in status_ui_modified:
+			file.write(s)
+
+	if len(config_ui) > 0:
+		file.write(config_label)
+		for c in config_ui_modified:
+			file.write(c)
+
+	file.write(ui_foot)
 	file.close()
 
 	return dependentDevices
 
-
-
-def parseVariable(var, portName, lastY):
+def parseVariable(var, portName):
 	enumVal = ["ZRVL", "ONVL", "TWVL", "THVL", "FRVL", "FVVL", "SXVL", "SVVL", "EIVL", "NIVL", "TEVL", "ELVL", "TVVL", "TTVL", "FTVL", "FFVL"]	
 	enumStr = ["ZRST", "ONST", "TWST", "THST", "FRST", "FVST", "SXST", "SVST", "EIST", "NIST", "TEST", "ELST", "TVST", "TTST", "FTST", "FFST"] 
 	enum = []
@@ -157,8 +221,12 @@ def parseVariable(var, portName, lastY):
 	new = ""
 	new += "record("
 
+	label_width = len(name)*9	
+	
 	ui = ""
-	ui += '<widget class="QLabel" name="%s">\n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 90 </width> \n <height> 15 </height> \n </rect> \n </property> <property name="text"> \n <string> %s </string> \n </property> \n </widget> \n' % (name, str(lastY+30), name)
+	ui += '<widget class="QLabel" name="%s">\n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> %d </width> \n <height> 15 </height> \n </rect> \n </property> <property name="text"> \n <string> %s </string> \n </property> \n </widget> \n' % (name, 'YNOTDEFINED', label_width,name)
+
+	
 
 	#Check type
 	if status and len(enum) == 0:
@@ -166,21 +234,21 @@ def parseVariable(var, portName, lastY):
 		new += "stringin, "
 		#dtyp = "asynFloat64"
 		dtyp = "asynOctetRead"
-		ui += '<widget class="caLineEdit" name="%s"> \n <property name="geometry"> \n <rect> \n <x> 140 </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, str(lastY+30), "$(DEVICE):"+name)
+		ui += '<widget class="caLineEdit" name="%s"> \n <property name="geometry"> \n <rect> \n <x> %s </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, 'XNOTDEFINED' ,'YNOTDEFINED', "$(DEVICE):"+name)
 	elif not status and len(enum) == 0:
 		#new += "ao, "
 		new += "stringout, "
 		#dtyp = "asynFloat64"
 		dtyp = "asynOctetWrite"
-		ui += '<widget class="caTextEntry" name="%s"> \n <property name="geometry"> \n <rect> \n <x> 140 </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, str(lastY+30), "$(DEVICE):"+name)
+		ui += '<widget class="caTextEntry" name="%s"> \n <property name="geometry"> \n <rect> \n <x> %s </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, 'XNOTDEFINED','YNOTDEFINED', "$(DEVICE):"+name)
 	elif status and len(enum) > 0:
 		new += "mbbi, "
 		dtyp = "asynInt32"
-		ui += '<widget class="caLineEdit" name="%s"> \n <property name="geometry"> \n <rect> \n <x> 140 </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, str(lastY+30), "$(DEVICE):"+name)
+		ui += '<widget class="caLineEdit" name="%s"> \n <property name="geometry"> \n <rect> \n <x> %s </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, 'XNOTDEFINED' ,'YNOTDEFINED', "$(DEVICE):"+name)
 	elif not status and len(enum) > 0:
 		new += "mbbo, "
 		dtyp = "asynInt32"
-		ui += '<widget class="caMenu" name="%s"> \n <property name="geometry"> \n <rect> \n <x> 140 </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, str(lastY+30), "$(DEVICE):"+name)
+		ui += '<widget class="caMenu" name="%s"> \n <property name="geometry"> \n <rect> \n <x> %s </x> \n <y> %s </y> \n <width> 211 </width> \n <height> 20 </height> \n </rect> \n </property> \n <property name="channel" stdset="0"> \n <string notr="true"> %s </string> \n </property> \n </widget>' %  ("$(DEVICE):"+name, 'XNOTDEFINED' ,'YNOTDEFINED', "$(DEVICE):"+name)
 
 	#Check name
 	new += "$(DEVICE):"
@@ -214,7 +282,7 @@ def parseVariable(var, portName, lastY):
 
 	new += "}\n\n"
 
-	return [new, ui]
+	return [new, ui, label_width]
 
 def parseCommands(command, asynPort):
 
