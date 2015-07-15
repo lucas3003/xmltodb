@@ -154,9 +154,10 @@ def newDevice(device):
 		first = True
 		for l in labels:
 			if first:
+				ui_relateddisplay += '%s' % ("DEVICE=$(DEVICE)")
 				first = False
 			else:
-				ui_relateddisplay += ';'
+				ui_relateddisplay += ';%s' % ("DEVICE=$(DEVICE)")
 
 		ui_relateddisplay += '</string> \n </property> \n </widget> \n'
 
