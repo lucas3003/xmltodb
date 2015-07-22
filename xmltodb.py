@@ -28,6 +28,8 @@ def findNameIndex(device):
 #Parse variables of device and return list of dependent devices
 def newDevice(device):
 	global commands
+	global commands_ui
+	global commands_biggest_label_width
 
 	nameIndex = findNameIndex(device)
 	index = findIndex(device)
@@ -70,8 +72,14 @@ def newDevice(device):
 			dependentDevices.append(child)
 
 		elif child.tag == 'command':
-			commands += parseCommands(child, asynPort)
+			result = parseCommands(child, asynPort)
+			commands += result[0]
+			commands_ui.append(result[1])
+			label_width = result[2]
 
+			if label_width > commands_biggest_label_width:
+				commands_biggest_label_width = label_width
+			
 
 	if len(status_ui) > 0:
 		status_label = '<widget class="QLabel" name="status">\n <property name="geometry"> \n <rect> \n <x> 50 </x> \n <y> %s </y> \n <width> 200 </width> \n <height> 15 </height> \n </rect> \n </property> <property name="text"> \n <string> %s </string> \n </property> \n </widget> \n' % (str(lastY), 'Status variables')
@@ -104,7 +112,6 @@ def newDevice(device):
 
 
 	# Create file with string 'records'
-	#file = open("out/"+asynPort+".db", "w")
 	file = open(sys.argv[2]+"/"+asynPort+".db", "w")
 	file.write(records)
 	file.close()
@@ -163,8 +170,8 @@ def newDevice(device):
 
 		lastY += 251
 
-	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> %d </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n' % (biggest_label_width+261,str(lastY + 30))
-	ui_foot = '</widget> \n </widget> <customwidgets> \n <customwidget> \n <class>caMenu</class> \n <extends>QComboBox</extends> \n <header>caMenu</header> \n </customwidget> \n <customwidget> \n <class>caRelatedDisplay</class> \n <extends>QWidget</extends> \n <header>caRelatedDisplay</header> \n </customwidget> \n <customwidget> \n <class>caTextEntry</class> \n <extends>caLineEdit</extends> \n <header>caTextEntry</header> \n </customwidget> \n <customwidget> \n <class>caLineEdit</class> \n <extends>QLineEdit</extends> \n <header>caLineEdit</header> \n </customwidget> \n </customwidgets> \n <resources/> \n <connections/> \n </ui>'
+	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> %d </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n <widget class="QScrollArea" name="scrollArea"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <y> 0 </y> \n <width> %d </width> \n <height> 1000 </height> \n </rect> \n </property> \n <widget class="QWidget" name="scrollAreaWidgetContents_3"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <y> 0 </y> \n <width> %d </width> \n <height> %d </height> \n </rect> \n </property>' % (biggest_label_width+291,str(1010), biggest_label_width+291, biggest_label_width+291, lastY + 30)
+	ui_foot = '</widget> \n </widget> \n </widget> \n </widget> \n <customwidgets> \n <customwidget> \n <class>caMenu</class> \n <extends>QComboBox</extends> \n <header>caMenu</header> \n </customwidget> \n <customwidget> \n <class>caRelatedDisplay</class> \n <extends>QWidget</extends> \n <header>caRelatedDisplay</header> \n </customwidget> \n <customwidget> \n <class>caTextEntry</class> \n <extends>caLineEdit</extends> \n <header>caTextEntry</header> \n </customwidget> \n <customwidget> \n <class>caLineEdit</class> \n <extends>QLineEdit</extends> \n <header>caLineEdit</header> \n </customwidget> \n </customwidgets> \n <resources/> \n <connections/> \n </ui>'
 
 	file = open(sys.argv[2]+"/"+asynPort+".ui", "w")
 	#file.write(ui_header + ui_relateddisplay + ui + ui_foot)
@@ -290,6 +297,8 @@ def parseCommands(command, asynPort):
 	name = command[0].text
 	desc = command[1].text
 
+	ui = ""
+
 	hasArg = False
 
 	for i in range(len(command)):
@@ -314,8 +323,60 @@ def parseCommands(command, asynPort):
 		new+= 'field("SCAN", "$(SCAN)")\n'
 		new+= 'info(asyn:READBACK, "1")\n'
 		new += "}\n\n"
+
+	label = asynPort + "_" + name
+	label_width = len(label)*9
+
+	ui = '<widget class="QLabel" name="ca_%s"> \n <property name="geometry"> \n <rect> \n <x> 30 </x> \n<y> %s </y> \n<width> %d </width>\n <height> 15 </height>\n </rect>\n </property> \n<property name="text"> \n<string> %s </string> \n</property> \n</widget>\n' % (label, 'YNOTDEFINED', label_width, label)
+
+	if hasArg:
+		ui += '<widget class="caTextEntry" name="txt_%s">\n <property name="geometry"> \n<rect> \n<x> %s </x>\n <y> %s </y> \n<width> 211 </width> \n<height> 22 </height> \n</rect>\n </property> \n<property name="channel" stdset="0">\n <string notr="true"> %s </string>\n </property>\n </widget>\n' % (label, 'XNOTDEFINED', 'YNOTDEFINED', "$(DEVICE):"+name+"Arg")
+
+	ui += '<widget class="caMessageButton" name="message_%s">\n <property name="geometry"> \n<rect>\n <x> %s </x>\n <y> %s </y>\n <width> 100 </width>\n <height> 22 </height>\n </rect>\n </property> \n<property name="channel" stdset="0"> \n<string notr="true"> %s </string>\n </property> \n<property name="label">\n <string notr="true"> Execute </string> \n</property> \n<property name="pressMessage">\n <string notr="true">1</string>\n</property>\n</widget>\n' % (label, 'XNOTDEFINED', 'YNOTDEFINED', "$(DEVICE):"+name+"Arg")
 			
-	return new
+	return (new, ui, label_width)
+
+def commandsGUI(body, biggest_label_width):
+	currentY = 30
+	lastY = len(body)*30+currentY
+	
+	ui_header = '<ui version="4.0"> \n <class>MainWindow </class> \n <widget class="QMainWindow" name="MainWindow"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <width> %d </width> \n <height> %s </height> \n </rect> \n </property> \n <property name="windowTitle"> \n <string>MainWindow</string> \n </property> \n <widget class="QWidget" name="centralWidget"> \n <widget class="QScrollArea" name="scrollArea"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <y> 0 </y> \n <width> %d </width> \n <height> 1000 </height> \n </rect> \n </property> \n <widget class="QWidget" name="scrollAreaWidgetContents_3"> \n <property name="geometry"> \n <rect> \n <x> 0 </x> \n <y> 0 </y> \n <width> %d </width> \n <height> %d </height> \n </rect> \n </property> ' % (biggest_label_width+371,str(lastY + 30), biggest_label_width+371, biggest_label_width+371, lastY + 30)
+	ui_foot = '</widget> \n </widget> \n </widget> \n </widget> \n <customwidgets> \n <customwidget> \n <class>caTextEntry</class> \n <extends>caLineEdit</extends> \n <header>caTextEntry</header> \n </customwidget> \n <customwidget> \n <class>caMessageButton</class> \n <extends>QPushButton</extends> \n <header>caMessageButton</header> \n </customwidget> \n <customwidget> \n <class>caLineEdit</class> \n <extends>QLineEdit</extends> \n <header>caLineEdit</header> \n </customwidget>  \n </customwidgets> \n <resources/> \n <connections/> \n </ui>'
+
+	ui_final = ui_header
+
+	body_modified = []
+	
+	for b in body:
+		hasArgs = False
+
+		if b.count("YNOTDEFINED") == 3:
+			hasArgs = True
+
+		#Replace label
+		temp = b.replace("YNOTDEFINED", str(currentY), 1)
+
+		#Replace textUpdate if exists
+		if hasArgs == True:
+			temp = temp.replace("XNOTDEFINED", str(biggest_label_width+30), 1)
+			temp = temp.replace("YNOTDEFINED", str(currentY), 1)
+
+
+		#Replace button
+		temp = temp.replace("XNOTDEFINED", str(biggest_label_width+241), 1)
+		temp = temp.replace("YNOTDEFINED", str(currentY), 1)
+
+
+		body_modified.append(temp)
+
+		currentY += 30
+
+	for b in body_modified:
+		ui_final += b
+
+	ui_final += ui_foot
+
+	return ui_final
 
 def index(device):
 
@@ -326,16 +387,23 @@ def index(device):
 
 	for dev in devices:
 		index(dev)
-
+ 
 
 tree = ET.ElementTree(file=sys.argv[1])
 
 
 commands = ""
+commands_ui = []
+commands_biggest_label_width = 0
+
 system = tree.getroot()
 structure = system[0]
 index(structure)
 
 file = open(sys.argv[2]+"/commands.db", "w")
 file.write(commands)
+file.close()
+
+file = open(sys.argv[2]+"/commands.ui", "w")
+file.write(commandsGUI(commands_ui, commands_biggest_label_width))
 file.close()
